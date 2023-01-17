@@ -1,0 +1,55 @@
+#!/bin/bash
+
+function installapps()
+#Installing applications whois, nmap, curl, Sshpass & Ssh
+{
+        sudo apt-get install sshpass
+        sudo apt-get install ssh 
+	sudo apt-get install curl
+	sudo apt-get install whois
+	sudo apt-get install nmap
+	echo "Applications have been installed "
+}
+
+
+function anon()
+{
+	#Checking fof valid connection origin
+	county=$( curl ipinfo.io | grep IL | awk '{print $2}')
+	country=$?
+	if [ country == "IL" ]
+	then
+		echo "The connection is from your origin country"
+		echo "Proccess stopped"
+		break
+	else
+		echo "Origin Verifyed"
+	fi
+}
+
+
+function vps()
+{
+	#Recieving log in info and Connectiong Viaw  Ssh
+	read -p "Enter User Name:   " un
+	read -sp "Enter Password:   " pwd
+	read -p "Enter Ip:   " ip
+	sshpass -sp $pwd ssh $un@$ip
+
+	#Checking whois & nmap querries of choice:
+	read -p "Choose query: whois or nmap:    " qry
+	if [ qry == "nmap" ]
+	then
+		echo " $(nmap $ip) "
+	elif [ qry == "whois" ]
+	then
+		echo " $(whois $ip) "
+	else
+	echo "Invalid Input"
+	fi
+}
+
+#Applying the functions
+installapps
+anon
+vps
